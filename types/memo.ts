@@ -3,8 +3,8 @@ import { type Timestamp } from 'firebase/firestore'
 interface Memo {
   id: string
   body: string
-  createdAt: Timestamp
-  updatedAt: Timestamp
+  created_at: Timestamp
+  updated_at: Timestamp
 }
 
 export type { Memo }

@@ -3,32 +3,55 @@ import CircleButton from '@/components/CircleButton'
 import Icon from '@/components/Icon'
 import { router, useLocalSearchParams } from 'expo-router'
 import { useState, useEffect } from 'react'
-import { onSnapshot, doc } from 'firebase/firestore'
-import { db, auth } from '@/config'
 import { type Memo } from 'types/memo'
+import { supabase } from '@/supabase'
 
 const handleOnPress = (id: string): void => {
   router.push({ pathname: '/memo/edit', params: { id } })
 }
+
 const Detail = (): JSX.Element => {
   const id = String(useLocalSearchParams().id)
   const [memo, setMemo] = useState<Memo | null>(null)
-  useEffect(() => {
-    if (auth.currentUser === null) {
-      return
+
+  // eslint-disable-next-line @typescript-eslint/explicit-function-return-type
+  const fetchRealTimeMemo = () => {
+    try {
+      supabase
+        .channel('memos')
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'memos' }, (payload) => { setMemo(payload.new as Memo) })
+        .subscribe()
+
+      return async () => {
+        await supabase.channel('memos').unsubscribe()
+      }
+    } catch (error) {
+      console.log(error)
     }
-    const ref = doc(db, `users/${auth.currentUser.uid}/memos`, id)
-    const unsubscribe = onSnapshot(ref, (memoDoc) => {
-      const { id, body, createdAt, updatedAt } = memoDoc.data() as Memo
-      setMemo({
-        id,
-        body,
-        createdAt,
-        updatedAt
-      })
-    })
-    return unsubscribe
-  }, [id])
+  }
+
+  const getMemo = async (id: string): Promise<void> => {
+    const { data } = await supabase.auth.getSession()
+    const userId = data.session?.user.id
+
+    try {
+      const { data } = await supabase
+        .from('memos')
+        .select('*')
+        .eq('id', id)
+        .eq('user_uid', userId)
+      if (data != null) {
+        setMemo(data[0] as Memo)
+      }
+    } catch (error) {
+      alert('Error loading user data!')
+    }
+  }
+
+  useEffect(() => {
+    fetchRealTimeMemo()
+    void getMemo(id)
+  }, [])
   return (
     <View style={styles.container}>
       <View style={styles.memoHeader}>
@@ -36,7 +59,7 @@ const Detail = (): JSX.Element => {
           {memo?.body}
         </Text>
         <Text style={styles.memoHeaderDate}>
-          {memo?.updatedAt.toDate().toLocaleString('ja-JP')}
+          {memo?.updated_at.toString()}
         </Text>
       </View>
       <ScrollView style={styles.memoBody}>

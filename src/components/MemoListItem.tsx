@@ -2,55 +2,36 @@ import { View, Text, StyleSheet, TouchableOpacity, Alert } from 'react-native'
 import Icon from './Icon'
 import { Link } from 'expo-router'
 import { type Memo } from 'types/memo'
-import { deleteDoc, doc } from 'firebase/firestore'
-import { db, auth } from '@/config'
+import { supabase } from '@/supabase'
 
 interface Props {
   memo: Memo
 }
 
-const handleOnPress = (id: string): void => {
-  console.log(id)
-  if (auth.currentUser === null) {
-    return
+// eslint-disable-next-line @typescript-eslint/explicit-function-return-type
+const handleOnPress = async (id: string) => {
+  const { error } = await supabase
+    .from('memos')
+    .delete()
+    .eq('id', id)
+
+  if (error != null) {
+    Alert.alert('削除に失敗しました')
   }
-  const ref = doc(db, `users/${auth.currentUser.uid}/memos`, id)
-  Alert.alert('削除しますか？', 'よろしいですか？', [
-    {
-      text: 'キャンセル',
-      style: 'cancel'
-    },
-    {
-      text: '削除',
-      style: 'destructive',
-      onPress: () => {
-        deleteDoc(ref).catch(() => {
-          Alert.alert('削除に失敗しました')
-        })
-      }
-    }
-  ])
-  deleteDoc(ref)
-    .then(() => {
-      console.log('success')
-    })
-    .catch(() => {
-      console.log('error')
-    })
 }
 const MemoListItem = ({ memo }: Props): JSX.Element | null => {
-  const { id, body, createdAt, updatedAt } = memo
+  const { id, body, created_at: createdAt, updated_at: UpdatedAt } = memo
 
   if (
     id === null ||
     body === null ||
     createdAt === null ||
-    updatedAt === null
+    UpdatedAt === null
   ) {
     return null
   }
 
-  const dateString = updatedAt.toDate().toLocaleString('ja-JP')
+  const dateString = UpdatedAt.toString()
 
   return (
     <Link
@@ -69,7 +50,7 @@ const MemoListItem = ({ memo }: Props): JSX.Element | null => {
         </View>
         <TouchableOpacity
           onPress={() => {
-            handleOnPress(id)
+            void handleOnPress(id)
           }}
         >
           <Icon name='delete' size={24} color='#b0b0b0' />

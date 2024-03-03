@@ -3,50 +3,74 @@ import MemoListItem from '@/components/MemoListItem'
 import CircleButton from '@/components/CircleButton'
 import Icon from '@/components/Icon'
 import { router, useNavigation } from 'expo-router'
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import LogoutButton from '@/components/LogoutButton'
-import { collection, onSnapshot, orderBy, query } from 'firebase/firestore'
-import { db, auth } from '@/config'
 import { type Memo } from 'types/memo'
+import { supabase } from '@/supabase'
 
 const onPress = (): void => {
   router.push('/memo/create')
 }
 
 const List = (): JSX.Element => {
-  const [memos, setMemos] = useState<Memo[]>([])
   const navigation = useNavigation()
+  const [memos, setMemos] = useState<Memo[]>([])
+
+  // eslint-disable-next-line @typescript-eslint/explicit-function-return-type
+  const fetchRealTimeMemo = () => {
+    try {
+      supabase
+        .channel('memo_list')
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'memos' }, (payload) => {
+          if (payload.eventType === 'DELETE') {
+            setMemos((prev) => prev.filter((m) => m.id !== payload.old.id))
+          }
+          if (payload.eventType === 'INSERT' || payload.eventType === 'UPDATE') {
+            const memo = payload.new as Memo
+            setMemos((prev) => {
+              const newMemos = prev.filter((m) => m.id !== memo.id)
+              newMemos.push(memo)
+              return newMemos
+            })
+          }
+        })
+        .subscribe()
+
+      return async () => {
+        await supabase.channel('memos').unsubscribe()
+      }
+    } catch (error) {
+      console.log(error)
+    }
+  }
+
+  const getMemos = useCallback(async () => {
+    const { data } = await supabase.auth.getSession()
+    const userId = data.session?.user.id
+    try {
+      const { data } = await supabase
+        .from('memos')
+        .select('*')
+        .eq('user_uid', userId)
+      if (data != null) {
+        setMemos(data)
+      }
+    } catch (error) {
+      alert('Error loading user data!')
+    }
+  }, [supabase])
+
   useEffect(() => {
     navigation.setOptions({
       headerRight: () => <LogoutButton />
     })
   }, [])
-  useEffect(() => {
-    if (auth.currentUser == null) {
-      return
-    }
-    const ref = collection(db, `users/${auth.currentUser.uid}/memos`) // データベースへの参照
-    const q = query(ref, orderBy('updatedAt', 'desc')) // クエリの作成(並び替えやフィルタリングを行う場合はここで行う)
-    // onSnapshotでリアルタイムでデータを取得
-    // 返り値はsnapshotの監視を解除する関数
-    const unsubscribe = onSnapshot(q, (snapshot) => {
-      const remoteMemos: Memo[] = []
-      // snapshotの中には配列形式でデータが格納されている。
-      snapshot.forEach((doc) => {
-        const { body, createdAt, updatedAt } = doc.data()
-        remoteMemos.push({
-          id: doc.id,
-          body,
-          createdAt,
-          updatedAt
-        })
-      })
-      setMemos(remoteMemos)
-    })
 
-    // コンポーネントがアンマウントされた時に監視を解除する
-    return unsubscribe
+  useEffect(() => {
+    fetchRealTimeMemo()
+    void getMemos()
   }, [])
+
   return (
     <View style={Styles.constainer}>
       <FlatList

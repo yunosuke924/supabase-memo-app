@@ -1,16 +1,13 @@
 import { TouchableOpacity, Text, StyleSheet, Alert } from 'react-native'
-import { signOut } from 'firebase/auth'
+import { supabase } from '@/supabase'
 import { router } from 'expo-router'
-import { auth } from '@/config'
 
 const handleOnPress = (): void => {
-  signOut(auth)
-    .then(() => {
-      router.replace('/auth/log_in')
-    })
-    .catch(() => {
-      Alert.alert('ログアウトに失敗しました')
-    })
+  supabase.auth.signOut().then((): void => {
+    router.replace('/auth/log_in')
+  }).catch((): void => {
+    Alert.alert('ログアウトに失敗しました')
+  })
 }
 
 const LogoutButton = (): JSX.Element => {

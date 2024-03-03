@@ -1,6 +1,5 @@
 import Button from '@/components/Button'
 import { Link, router } from 'expo-router'
-import { signInWithEmailAndPassword } from 'firebase/auth'
 import { useState } from 'react'
 import {
   View,
@@ -10,23 +9,25 @@ import {
   TouchableOpacity,
   Alert
 } from 'react-native'
-import { auth } from '@/config'
+import { supabase } from '@/supabase'
 
 const handleOnPress = (email: string, password: string): void => {
-  signInWithEmailAndPassword(auth, email, password)
-    .then((credential) => {
-      console.log(credential.user.uid)
+  supabase.auth.signInWithPassword({ email, password }).then((response): void => {
+    if (response.data.user !== null) {
       router.replace('/memo/list')
-    })
-    .catch((e) => {
-      const { message } = e as { message: string }
-      Alert.alert(message)
-    })
+    } else {
+      Alert.alert('ログインに失敗しました')
+    }
+  }).catch((error): void => {
+    const { message } = error as { message: string }
+    Alert.alert(message)
+  })
 }
 
 const Login = (): JSX.Element => {
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
+
   return (
     <View style={styles.container}>
       <View style={styles.inner}>

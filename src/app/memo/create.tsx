@@ -7,26 +7,25 @@ import {
 } from 'react-native'
 import CircleButton from '@/components/CircleButton'
 import Icon from '@/components/Icon'
-import { router } from 'expo-router'
-import { collection, addDoc, Timestamp } from 'firebase/firestore'
-import { db, auth } from '@/config'
 import { useState } from 'react'
-const handleOnPress = (body: string): void => {
-  if (auth.currentUser == null) {
-    return
+import { supabase } from '@/supabase'
+import { router } from 'expo-router'
+// eslint-disable-next-line @typescript-eslint/explicit-function-return-type
+const handleOnPress = async (body: string) => {
+  const { data } = await supabase.auth.getSession()
+  const userId = data.session?.user.id
+  const { error } = await supabase
+    .from('memos')
+    .insert([
+      { body, user_uid: userId }
+    ])
+    .select()
+
+  if (error != null) {
+    Alert.alert('作成に失敗しました')
   }
-  const memoRef = collection(db, `users/${auth.currentUser.uid}/memos`)
-  addDoc(memoRef, {
-    body,
-    createdAt: Timestamp.fromDate(new Date()),
-    updatedAt: Timestamp.fromDate(new Date())
-  })
-    .then(() => {
-      router.back()
-    })
-    .catch(() => {
-      Alert.alert('メモの作成に失敗しました')
-    })
+
+  router.back()
 }
 
 const Create = (): JSX.Element => {
@@ -46,7 +45,7 @@ const Create = (): JSX.Element => {
       </View>
       <CircleButton
         onPress={() => {
-          handleOnPress(body)
+          void handleOnPress(body)
         }}
       >
         <Icon name='check' size={40} color='#fff' />

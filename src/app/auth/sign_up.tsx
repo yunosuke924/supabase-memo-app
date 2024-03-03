@@ -9,19 +9,18 @@ import {
 } from 'react-native'
 import { Link, router } from 'expo-router'
 import { useState } from 'react'
-import { createUserWithEmailAndPassword } from 'firebase/auth'
-import { auth } from '@/config'
+import { supabase } from '@/supabase'
 
 const handleOnPress = (email: string, password: string): void => {
-  createUserWithEmailAndPassword(auth, email, password)
-    .then((credential) => {
-      console.log(credential.user.uid)
+  supabase.auth.signUp({ email, password }).then((response): void => {
+    if (response.data.user !== null) {
       router.replace('/memo/list')
-    })
-    .catch((e) => {
-      const { message } = e as { message: string }
-      Alert.alert(message)
-    })
+    } else {
+      Alert.alert('新規登録に失敗しました')
+    }
+  }).catch((error): void => {
+    console.log('error', error)
+  })
 }
 
 const Login = (): JSX.Element => {

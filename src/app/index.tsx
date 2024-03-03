@@ -1,12 +1,12 @@
 import { Redirect, router } from 'expo-router'
-import { onAuthStateChanged } from 'firebase/auth'
+
 import { useEffect } from 'react'
-import { auth } from '@/config'
+import { supabase } from '@/supabase'
 
 const Index = (): JSX.Element => {
   useEffect(() => {
-    onAuthStateChanged(auth, (user) => {
-      if (user !== null) {
+    supabase.auth.onAuthStateChange((event, session): void => {
+      if ((session?.user) != null) {
         router.replace('/memo/list')
       }
     })
